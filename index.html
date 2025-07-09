@@ -15,6 +15,7 @@ select {
         }        function updateScale() {
             const select = document.getElementById('scaleSelect');
             currentScale = parseFloat(select.value);
+            console.log('Scale changed to:', currentScale); // Debug line
             
             if (patternLines.length > 0) {
                 generatePattern();
@@ -314,10 +315,13 @@ select {
             const worldDeltaX = deltaX * Math.cos(angleRad) - deltaY * Math.sin(angleRad);
             const worldDeltaY = deltaX * Math.sin(angleRad) + deltaY * Math.cos(angleRad);
             
+            // Apply scale with a base multiplier to make differences more visible
+            const effectiveScale = currentScale * 10;
+            
             // If both deltas are 0, this is a single line
             if (deltaX === 0 && deltaY === 0) {
-                const startX = xOrigin * currentScale + canvasWidth / 2;
-                const startY = yOrigin * currentScale + canvasHeight / 2;
+                const startX = xOrigin * effectiveScale + canvasWidth / 2;
+                const startY = yOrigin * effectiveScale + canvasHeight / 2;
                 
                 if (dashes.length === 0) {
                     drawInfiniteLine(ctx, startX, startY, dirX, dirY, canvasWidth, canvasHeight);
@@ -332,13 +336,13 @@ select {
             
             // Determine how many parallel lines we need to cover the canvas
             const maxDim = Math.max(canvasWidth, canvasHeight);
-            const scaledSpacing = spacingDist * currentScale;
+            const scaledSpacing = spacingDist * effectiveScale;
             const numLines = scaledSpacing > 0 ? Math.ceil(maxDim / scaledSpacing) + 10 : 50;
             
             // Draw parallel lines using world-coordinate deltas
             for (let i = -numLines; i <= numLines; i++) {
-                const startX = (xOrigin + i * worldDeltaX) * currentScale + canvasWidth / 2;
-                const startY = (yOrigin + i * worldDeltaY) * currentScale + canvasHeight / 2;
+                const startX = (xOrigin + i * worldDeltaX) * effectiveScale + canvasWidth / 2;
+                const startY = (yOrigin + i * worldDeltaY) * effectiveScale + canvasHeight / 2;
                 
                 if (dashes.length === 0) {
                     drawInfiniteLine(ctx, startX, startY, dirX, dirY, canvasWidth, canvasHeight);
@@ -369,9 +373,10 @@ select {
             let dashIndex = 0;
             let totalDistance = 0;
             const maxDistance = 2 * extent;
+            const effectiveScale = currentScale * 10;
             
             while (totalDistance < maxDistance) {
-                const dashLength = Math.abs(dashes[dashIndex]) * currentScale;
+                const dashLength = Math.abs(dashes[dashIndex]) * effectiveScale;
                 const isDraw = dashes[dashIndex] > 0;
                 
                 const endX = currentX + dirX * dashLength;
