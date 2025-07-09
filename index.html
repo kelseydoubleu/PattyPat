@@ -238,6 +238,16 @@ select {
         let patternLines = [];
         let currentScale = 1; // Start at 1x
 
+        function updateScale() {
+            const select = document.getElementById('scaleSelect');
+            currentScale = parseFloat(select.value);
+            console.log('Scale changed to:', currentScale); // Debug line
+            
+            if (patternLines.length > 0) {
+                generatePattern();
+            }
+        }
+
         function parsePatternLine(line) {
             const cleanLine = line.trim();
             if (!cleanLine || cleanLine.startsWith('*') || cleanLine.startsWith(';')) {
