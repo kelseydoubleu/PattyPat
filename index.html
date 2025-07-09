@@ -90,16 +90,6 @@
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
         }
 
-        .scale-control {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        input[type="range"] {
-            width: 150px;
-        }
-
         .canvas-container {
             text-align: center;
             background: white;
@@ -160,16 +150,6 @@
             font-size: 0.9em;
             margin-top: 5px;
         }
-
-        .debug {
-            margin-top: 20px;
-            padding: 15px;
-            background: #fef5e7;
-            border-radius: 8px;
-            border-left: 4px solid #ed8936;
-            font-family: monospace;
-            font-size: 12px;
-        }
     </style>
 </head>
 <body>
@@ -185,15 +165,6 @@
             <button onclick="generatePattern()">Generate Pattern</button>
             <button onclick="clearCanvas()">Clear</button>
             <button class="example-button" onclick="loadExample()">Load Example</button>
-            
-            <div class="scale-control">
-                <label for="scaleSelect">Scale:</label>
-                <select id="scaleSelect" onchange="updateScale()">
-                    <option value="0.5">0.5x</option>
-                    <option value="1" selected>1x</option>
-                    <option value="2">2x</option>
-                </select>
-            </div>
         </div>
 
         <div class="canvas-container">
@@ -208,23 +179,11 @@
             </div>
 
             <div class="pattern-stats" id="patternStats"></div>
-            <div class="debug" id="debugInfo" style="display: none;"></div>
         </div>
     </div>
 
     <script>
         let patternLines = [];
-        let currentScale = 1; // Start at 1x
-
-        function updateScale() {
-            const select = document.getElementById('scaleSelect');
-            currentScale = parseFloat(select.value);
-            console.log('Scale changed to:', currentScale); // Debug line
-            
-            if (patternLines.length > 0) {
-                generatePattern();
-            }
-        }
 
         function parsePatternLine(line) {
             const cleanLine = line.trim();
@@ -260,141 +219,181 @@
             const lines = input.split('\n');
             patternLines = lines.map(parsePatternLine).filter(line => line !== null);
             
-            let debugInfo = `Parsed ${patternLines.length} lines:\n`;
+            console.log('Parsed pattern lines:', patternLines); // Debug output
             
             if (patternLines.length === 0) {
                 ctx.fillStyle = '#666';
                 ctx.font = '20px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText('No valid pattern data found', canvas.width/2, canvas.height/2);
-                document.getElementById('debugInfo').textContent = 'No valid pattern lines found';
-                document.getElementById('debugInfo').style.display = 'block';
                 return;
             }
+
+            // Calculate scale based on pattern spacing for comfortable viewing
+            let typicalSpacing = 20; // Default fallback
+            
+            // Find the most common spacing value from deltas and dashes
+            const spacingValues = [];
+            for (let i = 0; i < patternLines.length; i++) {
+                const line = patternLines[i];
+                // Add delta values (line spacing)
+                if (line.deltaX !== 0) spacingValues.push(Math.abs(line.deltaX));
+                if (line.deltaY !== 0) spacingValues.push(Math.abs(line.deltaY));
+                // Add dash values (line segments)
+                line.dashes.forEach(val => {
+                    if (val !== 0) spacingValues.push(Math.abs(val));
+                });
+            }
+            
+            if (spacingValues.length > 0) {
+                // Use median spacing value to avoid outliers
+                spacingValues.sort((a, b) => a - b);
+                typicalSpacing = spacingValues[Math.floor(spacingValues.length / 2)];
+            }
+            
+            // Scale so typical spacing appears as ~50 pixels on screen
+            const targetPixels = 50;
+            const scale = targetPixels / typicalSpacing;
 
             // Set up drawing context
             ctx.strokeStyle = '#2d3748';
             ctx.lineWidth = 1;
             ctx.lineCap = 'round';
             
-            // Draw each hatch line family
+            // Simple coordinate system - origin at center, no flipping
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(scale, scale);
+            
+            // Draw each pattern line family
+            console.log('Drawing', patternLines.length, 'pattern families');
             patternLines.forEach((line, index) => {
-                debugInfo += `Line ${index + 1}: angle=${line.angle}°, origin=(${line.xOrigin}, ${line.yOrigin}), delta=(${line.deltaX}, ${line.deltaY}), dashes=[${line.dashes.join(', ')}]\n`;
-                drawHatchFamily(ctx, line, canvas.width, canvas.height);
+                console.log(`Drawing family ${index}:`, line);
+                drawPatternFamily(ctx, line, canvas.width / scale, canvas.height / scale);
             });
 
-            document.getElementById('debugInfo').textContent = debugInfo;
-            document.getElementById('debugInfo').style.display = 'block';
             updatePatternStats();
         }
 
-        function drawHatchFamily(ctx, line, canvasWidth, canvasHeight) {
-            const { angle, xOrigin, yOrigin, deltaX, deltaY, dashes } = line;
+        function drawPatternFamily(ctx, patternRow, canvasW, canvasH) {
+            const { angle, xOrigin, yOrigin, deltaX, deltaY, dashes } = patternRow;
             
-            // Convert angle to radians
-            const angleRad = (angle * Math.PI) / 180;
+            console.log(`Drawing pattern family at ${angle}° with deltas (${deltaX}, ${deltaY})`);
             
-            // Calculate line direction vector (along the line)
-            const dirX = Math.cos(angleRad);
-            const dirY = Math.sin(angleRad);
-            
-            // CRUCIAL: deltaX and deltaY are relative to the line's angle, not world coordinates
-            // We need to rotate the delta vector by the line's angle to get world coordinates
-            const worldDeltaX = deltaX * Math.cos(angleRad) - deltaY * Math.sin(angleRad);
-            const worldDeltaY = deltaX * Math.sin(angleRad) + deltaY * Math.cos(angleRad);
-            
-            // Apply scale with a base multiplier to make differences more visible
-            const effectiveScale = currentScale * 10;
-            
-            // If both deltas are 0, this is a single line
             if (deltaX === 0 && deltaY === 0) {
-                const startX = xOrigin * effectiveScale + canvasWidth / 2;
-                const startY = yOrigin * effectiveScale + canvasHeight / 2;
-                
-                if (dashes.length === 0) {
-                    drawInfiniteLine(ctx, startX, startY, dirX, dirY, canvasWidth, canvasHeight);
-                } else {
-                    drawDashedInfiniteLine(ctx, startX, startY, dirX, dirY, dashes, canvasWidth, canvasHeight);
-                }
+                // Single line case
+                console.log('Single line case');
+                drawSingleRow(ctx, [angle, xOrigin, yOrigin, deltaX, deltaY, ...dashes], 0, canvasW, canvasH);
                 return;
             }
             
-            // Calculate spacing between parallel lines in world coordinates
-            const spacingDist = Math.sqrt(worldDeltaX * worldDeltaX + worldDeltaY * worldDeltaY);
+            // Draw parallel lines in both directions regardless of delta sign
+            const maxLines = 50;
+            console.log(`Drawing ${maxLines * 2} parallel lines`);
             
-            // Determine how many parallel lines we need to cover the canvas
-            const maxDim = Math.max(canvasWidth, canvasHeight);
-            const scaledSpacing = spacingDist * effectiveScale;
-            const numLines = scaledSpacing > 0 ? Math.ceil(maxDim / scaledSpacing) + 10 : 50;
-            
-            // Draw parallel lines using world-coordinate deltas
-            for (let i = -numLines; i <= numLines; i++) {
-                const startX = (xOrigin + i * worldDeltaX) * effectiveScale + canvasWidth / 2;
-                const startY = (yOrigin + i * worldDeltaY) * effectiveScale + canvasHeight / 2;
+            // Draw lines at offsets: 0, ±1, ±2, ±3, etc.
+            // This ensures we get lines in both directions regardless of delta sign
+            for (let i = 0; i < maxLines; i++) {
+                // Draw at positive offset
+                if (!drawSingleRow(ctx, [angle, xOrigin, yOrigin, deltaX, deltaY, ...dashes], i, canvasW, canvasH)) {
+                    break;
+                }
                 
-                if (dashes.length === 0) {
-                    drawInfiniteLine(ctx, startX, startY, dirX, dirY, canvasWidth, canvasHeight);
-                } else {
-                    drawDashedInfiniteLine(ctx, startX, startY, dirX, dirY, dashes, canvasWidth, canvasHeight);
+                // Draw at negative offset (skip i=0 to avoid duplicate)
+                if (i > 0) {
+                    if (!drawSingleRow(ctx, [angle, xOrigin, yOrigin, deltaX, deltaY, ...dashes], -i, canvasW, canvasH)) {
+                        break;
+                    }
                 }
             }
         }
 
-        function drawInfiniteLine(ctx, startX, startY, dirX, dirY, canvasWidth, canvasHeight) {
-            // Calculate line extent to cover entire canvas
-            const extent = Math.sqrt(canvasWidth * canvasWidth + canvasHeight * canvasHeight);
+        function drawSingleRow(ctx, row, perpOffset, canvasW, canvasH) {
+            // Extract row data: [angle, x-origin, y-origin, delta-x, delta-y, dash1, dash2, ...]
+            const angle = row[0];
+            let currentX = row[1];
+            let currentY = row[2];
+            const deltaX = row[3];
+            const deltaY = row[4];
+            const dashArray = row.slice(5);
             
+            // Convert angle to radians
+            const a = angle * Math.PI / 180;
+            const aP = (angle - 90) * Math.PI / 180; // Perpendicular angle
+            
+            // Apply perpendicular offset (Pattycake's approach)
+            currentX += perpOffset * (Math.cos(aP) * deltaY);
+            currentY += perpOffset * (Math.sin(aP) * deltaY);
+            currentX -= perpOffset * (Math.cos(a) * deltaX);
+            currentY -= perpOffset * (Math.sin(a) * deltaX);
+            
+            const x1 = currentX;
+            const y1 = currentY;
+            
+            // Calculate line endpoint - extend in both directions
+            const lineLength = Math.max(canvasW, canvasH) * 2; // Longer lines
+            const x2 = x1 + Math.cos(a) * lineLength;
+            const y2 = y1 + Math.sin(a) * lineLength;
+            const x0 = x1 - Math.cos(a) * lineLength; // Extend backwards too
+            const y0 = y1 - Math.sin(a) * lineLength;
+            
+            // Check if line intersects with visible area 
+            const bounds = {
+                left: -canvasW/2,
+                right: canvasW/2, 
+                top: -canvasH/2,
+                bottom: canvasH/2
+            };
+            
+            // More generous bounds check - if any part of the line might be visible
+            if (!lineIntersectsBounds(x0, y0, x2, y2, bounds)) {
+                return false; // Line not visible
+            }
+            
+            // Draw the line
             ctx.beginPath();
-            ctx.moveTo(startX - dirX * extent, startY - dirY * extent);
-            ctx.lineTo(startX + dirX * extent, startY + dirY * extent);
-            ctx.stroke();
-        }
-
-        function drawDashedInfiniteLine(ctx, startX, startY, dirX, dirY, dashes, canvasWidth, canvasHeight) {
-            if (dashes.length === 0) return;
+            ctx.moveTo(x0, -y0); // Start from extended backwards point
             
-            // Start from far left/top of canvas
-            const extent = Math.sqrt(canvasWidth * canvasWidth + canvasHeight * canvasHeight);
-            let currentX = startX - dirX * extent;
-            let currentY = startY - dirY * extent;
-            
-            let dashIndex = 0;
-            let totalDistance = 0;
-            const maxDistance = 2 * extent;
-            const effectiveScale = currentScale * 10;
-            
-            while (totalDistance < maxDistance) {
-                const dashLength = Math.abs(dashes[dashIndex]) * effectiveScale;
-                const isDraw = dashes[dashIndex] > 0;
-                
-                const endX = currentX + dirX * dashLength;
-                const endY = currentY + dirY * dashLength;
-                
-                if (isDraw) {
-                    ctx.beginPath();
-                    ctx.moveTo(currentX, currentY);
-                    ctx.lineTo(endX, endY);
-                    ctx.stroke();
-                }
-                
-                currentX = endX;
-                currentY = endY;
-                totalDistance += dashLength;
-                
-                dashIndex = (dashIndex + 1) % dashes.length;
+            if (dashArray.length === 0) {
+                // Solid line
+                ctx.setLineDash([]);
+                ctx.lineTo(x2, -y2);
+            } else {
+                // Dashed line - convert negative values to positive
+                const positiveDashes = dashArray.map(d => Math.abs(d));
+                ctx.setLineDash(positiveDashes);
+                ctx.lineTo(x2, -y2);
             }
+            
+            ctx.stroke();
+            return true;
         }
 
-
+        function lineIntersectsBounds(x1, y1, x2, y2, bounds) {
+            // Simple bounds check - if either endpoint is in bounds or line crosses bounds
+            const p1InBounds = (x1 >= bounds.left && x1 <= bounds.right && 
+                               y1 >= bounds.top && y1 <= bounds.bottom);
+            const p2InBounds = (x2 >= bounds.left && x2 <= bounds.right && 
+                               y2 >= bounds.top && y2 <= bounds.bottom);
+            
+            if (p1InBounds || p2InBounds) return true;
+            
+            // Check if line crosses any bound
+            return (
+                (x1 < bounds.left && x2 > bounds.right) ||
+                (x1 > bounds.right && x2 < bounds.left) ||
+                (y1 < bounds.top && y2 > bounds.bottom) ||
+                (y1 > bounds.bottom && y2 < bounds.top)
+            );
+        }
 
         function clearCanvas() {
             const canvas = document.getElementById('patternCanvas');
             const ctx = canvas.getContext('2d');
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             document.getElementById('patternStats').innerHTML = '';
-            document.getElementById('debugInfo').style.display = 'none';
         }
 
         function loadExample() {
