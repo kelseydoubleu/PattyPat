@@ -1,26 +1,4 @@
-select {
-            padding: 8px 12px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 16px;
-            background: white;
-            cursor: pointer;
-            transition: border-color 0.3s ease;
-        }
-
-        select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }        function updateScale() {
-            const select = document.getElementById('scaleSelect');
-            currentScale = parseFloat(select.value);
-            console.log('Scale changed to:', currentScale); // Debug line
-            
-            if (patternLines.length > 0) {
-                generatePattern();
-            }
-        }<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
