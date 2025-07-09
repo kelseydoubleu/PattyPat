@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoCAD PAT Pattern Viewer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 1.1em;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+            background: #f8fafc;
+            box-sizing: border-box;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .scale-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            width: 150px;
+        }
+
+        .canvas-container {
+            text-align: center;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e2e8f0;
+        }
+
+        canvas {
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            max-width: 100%;
+            height: auto;
+            background: white;
+        }
+
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
+        }
+
+        .example-button {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            margin-left: 10px;
+        }
+
+        .example-button:hover {
+            box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+        }
+
+        .pattern-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #718096;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .debug {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fef5e7;
+            border-radius: 8px;
+            border-left: 4px solid #ed8936;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 AutoCAD PAT Pattern Viewer</h1>
+        
+        <div class="input-section">
+            <label for="patData">Enter PAT pattern data (one line per hatch definition):</label>
+            <textarea id="patData" placeholder="Example:&#10;0, 0, 0, 0, 20.0, 0, 0&#10;90, 0, 0, 0, 20.0, 0, 0&#10;0, 0, 5.0, 0, 40.0, 20.0, -20.0"></textarea>
+        </div>
+
+        <div class="controls">
+            <button onclick="generatePattern()">Generate Pattern</button>
+            <button onclick="clearCanvas()">Clear</button>
+            <button class="example-button" onclick="loadExample()">Load Example</button>
+            
+            <div class="scale-control">
+                <label for="scaleSlider">Scale:</label>
+                <input type="range" id="scaleSlider" min="1" max="10" value="5" step="0.5" onchange="updateScale()">
+                <span id="scaleValue">5.0x</span>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="patternCanvas" width="800" height="600"></canvas>
+            
+            <div class="info">
+                <strong>Pattern Format:</strong> angle, x-origin, y-origin, delta-x, delta-y, dash1, dash2, ...
+                <br>
+                <strong>Angles:</strong> 0° = horizontal, 90° = vertical
+                <br>
+                <strong>Dashes:</strong> Positive = line, Negative = space
+            </div>
+
+            <div class="pattern-stats" id="patternStats"></div>
+            <div class="debug" id="debugInfo" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentScale = 5.0;
+        let patternLines = [];
+
+        function parsePatternLine(line) {
+            const cleanLine = line.trim();
+            if (!cleanLine || cleanLine.startsWith('*') || cleanLine.startsWith(';')) {
+                return null;
+            }
+            
+            const values = cleanLine.split(',').map(v => parseFloat(v.trim()));
+            if (values.length < 5 || values.some(v => isNaN(v))) {
+                return null;
+            }
+            
+            return {
+                angle: values[0],
+                xOrigin: values[1],
+                yOrigin: values[2],
+                deltaX: values[3],
+                deltaY: values[4],
+                dashes: values.slice(5).filter(v => v !== 0)
+            };
+        }
+
+        function generatePattern() {
+            const canvas = document.getElementById('patternCanvas');
+            const ctx = canvas.getContext('2d');
+            const input = document.getElementById('patData').value;
+            
+            // Clear canvas with white background
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Parse input
+            const lines = input.split('\n');
+            patternLines = lines.map(parsePatternLine).filter(line => line !== null);
+            
+            let debugInfo = `Parsed ${patternLines.length} lines:\n`;
+            
+            if (patternLines.length === 0) {
+                ctx.fillStyle = '#666';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('No valid pattern data found', canvas.width/2, canvas.height/2);
+                document.getElementById('debugInfo').textContent = 'No valid pattern lines found';
+                document.getElementById('debugInfo').style.display = 'block';
+                return;
+            }
+
+            // Set up drawing context
+            ctx.strokeStyle = '#2d3748';
+            ctx.lineWidth = 1;
+            ctx.lineCap = 'round';
+            
+            // Draw each hatch line family
+            patternLines.forEach((line, index) => {
+                debugInfo += `Line ${index + 1}: angle=${line.angle}°, origin=(${line.xOrigin}, ${line.yOrigin}), delta=(${line.deltaX}, ${line.deltaY}), dashes=[${line.dashes.join(', ')}]\n`;
+                drawHatchFamily(ctx, line, canvas.width, canvas.height);
+            });
+
+            document.getElementById('debugInfo').textContent = debugInfo;
+            document.getElementById('debugInfo').style.display = 'block';
+            updatePatternStats();
+        }
+
+        function drawHatchFamily(ctx, line, canvasWidth, canvasHeight) {
+            const { angle, xOrigin, yOrigin, deltaX, deltaY, dashes } = line;
+            
+            // Convert angle to radians
+            const angleRad = (angle * Math.PI) / 180;
+            
+            // Calculate line direction vector (along the line)
+            const dirX = Math.cos(angleRad);
+            const dirY = Math.sin(angleRad);
+            
+            // CRUCIAL: deltaX and deltaY are relative to the line's angle, not world coordinates
+            // We need to rotate the delta vector by the line's angle to get world coordinates
+            const worldDeltaX = deltaX * Math.cos(angleRad) - deltaY * Math.sin(angleRad);
+            const worldDeltaY = deltaX * Math.sin(angleRad) + deltaY * Math.cos(angleRad);
+            
+            // If both deltas are 0, this is a single line
+            if (deltaX === 0 && deltaY === 0) {
+                const startX = xOrigin * currentScale + canvasWidth / 2;
+                const startY = yOrigin * currentScale + canvasHeight / 2;
+                
+                if (dashes.length === 0) {
+                    drawInfiniteLine(ctx, startX, startY, dirX, dirY, canvasWidth, canvasHeight);
+                } else {
+                    drawDashedInfiniteLine(ctx, startX, startY, dirX, dirY, dashes, canvasWidth, canvasHeight);
+                }
+                return;
+            }
+            
+            // Calculate spacing between parallel lines in world coordinates
+            const spacingDist = Math.sqrt(worldDeltaX * worldDeltaX + worldDeltaY * worldDeltaY);
+            
+            // Determine how many parallel lines we need to cover the canvas
+            const maxDim = Math.max(canvasWidth, canvasHeight);
+            const numLines = Math.ceil(maxDim / (spacingDist * currentScale)) + 10;
+            
+            // Draw parallel lines using world-coordinate deltas
+            for (let i = -numLines; i <= numLines; i++) {
+                const startX = (xOrigin + i * worldDeltaX) * currentScale + canvasWidth / 2;
+                const startY = (yOrigin + i * worldDeltaY) * currentScale + canvasHeight / 2;
+                
+                if (dashes.length === 0) {
+                    drawInfiniteLine(ctx, startX, startY, dirX, dirY, canvasWidth, canvasHeight);
+                } else {
+                    drawDashedInfiniteLine(ctx, startX, startY, dirX, dirY, dashes, canvasWidth, canvasHeight);
+                }
+            }
+        }
+
+        function drawInfiniteLine(ctx, startX, startY, dirX, dirY, canvasWidth, canvasHeight) {
+            // Calculate line extent to cover entire canvas
+            const extent = Math.sqrt(canvasWidth * canvasWidth + canvasHeight * canvasHeight);
+            
+            ctx.beginPath();
+            ctx.moveTo(startX - dirX * extent, startY - dirY * extent);
+            ctx.lineTo(startX + dirX * extent, startY + dirY * extent);
+            ctx.stroke();
+        }
+
+        function drawDashedInfiniteLine(ctx, startX, startY, dirX, dirY, dashes, canvasWidth, canvasHeight) {
+            if (dashes.length === 0) return;
+            
+            // Start from far left/top of canvas
+            const extent = Math.sqrt(canvasWidth * canvasWidth + canvasHeight * canvasHeight);
+            let currentX = startX - dirX * extent;
+            let currentY = startY - dirY * extent;
+            
+            let dashIndex = 0;
+            let totalDistance = 0;
+            const maxDistance = 2 * extent;
+            
+            while (totalDistance < maxDistance) {
+                const dashLength = Math.abs(dashes[dashIndex]) * currentScale;
+                const isDraw = dashes[dashIndex] > 0;
+                
+                const endX = currentX + dirX * dashLength;
+                const endY = currentY + dirY * dashLength;
+                
+                if (isDraw) {
+                    ctx.beginPath();
+                    ctx.moveTo(currentX, currentY);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+                }
+                
+                currentX = endX;
+                currentY = endY;
+                totalDistance += dashLength;
+                
+                dashIndex = (dashIndex + 1) % dashes.length;
+            }
+        }
+
+        function updateScale() {
+            const slider = document.getElementById('scaleSlider');
+            const value = document.getElementById('scaleValue');
+            currentScale = parseFloat(slider.value);
+            value.textContent = currentScale.toFixed(1) + 'x';
+            
+            if (patternLines.length > 0) {
+                generatePattern();
+            }
+        }
+
+        function clearCanvas() {
+            const canvas = document.getElementById('patternCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            document.getElementById('patternStats').innerHTML = '';
+            document.getElementById('debugInfo').style.display = 'none';
+        }
+
+        function loadExample() {
+            const example = `0, 0, 0, 0, 20.0, 0, 0
+90, 0, 0, 0, 20.0, 0, 0
+0, 0, 5.0, 0, 40.0, 20.0, -20.0
+0, 0, 10.0, 0, 40.0, 20.0, -20.0
+0, 0, 15.0, 0, 40.0, 20.0, -20.0
+0, 20.0, 25.0, 0, 40.0, 20.0, -20.0
+0, 20.0, 30.0, 0, 40.0, 20.0, -20.0
+0, 20.0, 35.0, 0, 40.0, 20.0, -20.0
+90, 5.0, 20.0, 0, 40.0, 20.0, -20.0
+90, 10.0, 20.0, 0, 40.0, 20.0, -20.0
+90, 15.0, 20.0, 0, 40.0, 20.0, -20.0
+90, 25.0, 0, 0, 40.0, 20.0, -20.0
+90, 30.0, 0, 0, 40.0, 20.0, -20.0
+90, 35.0, 0, 0, 40.0, 20.0, -20.0`;
+            
+            document.getElementById('patData').value = example;
+            generatePattern();
+        }
+
+        function updatePatternStats() {
+            const stats = document.getElementById('patternStats');
+            
+            if (patternLines.length === 0) {
+                stats.innerHTML = '';
+                return;
+            }
+            
+            const angles = [...new Set(patternLines.map(line => line.angle))].sort((a, b) => a - b);
+            const hasHorizontal = angles.includes(0);
+            const hasVertical = angles.includes(90);
+            const hasDashes = patternLines.some(line => line.dashes.length > 0);
+            
+            let patternType = 'Linear';
+            if (hasHorizontal && hasVertical) {
+                patternType = 'Grid';
+            } else if (angles.length > 2) {
+                patternType = 'Multi-angle';
+            }
+            
+            stats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${patternLines.length}</div>
+                    <div class="stat-label">Hatch Lines</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${angles.length}</div>
+                    <div class="stat-label">Unique Angles</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${patternType}</div>
+                    <div class="stat-label">Pattern Type</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${hasDashes ? 'Dashed' : 'Solid'}</div>
+                    <div class="stat-label">Line Style</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${angles.join('°, ')}°</div>
+                    <div class="stat-label">Angles Used</div>
+                </div>
+            `;
+        }
+
+        // Initialize
+        window.onload = function() {
+            updateScale();
+            loadExample();
+        };
+    </script>
+</body>
+</html>
