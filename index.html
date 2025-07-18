@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>.PAT Pattern Viewer</title>
+    <title>AutoCAD PAT Pattern Viewer & Generator</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -37,21 +37,119 @@
             border: 1px solid rgba(0, 0, 0, 0.05);
         }
 
-        .input-section {
+        .tabs {
+            display: flex;
+            gap: 8px;
             margin-bottom: 24px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .tab {
+            background: none;
+            border: none;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6b7280;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tab.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+
+        .tab:hover {
+            color: #1f2937;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .generator-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .generator-option {
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .generator-option:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+        }
+
+        .generator-option.selected {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .generator-option h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .generator-option p {
+            margin: 0;
+            font-size: 0.9em;
+            color: #6b7280;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
         }
 
         label {
             display: block;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             font-weight: 500;
             color: #374151;
-            font-size: 0.95em;
+            font-size: 0.9em;
+        }
+
+        input[type="number"] {
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            background: #fafbfc;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            background: white;
         }
 
         textarea {
             width: 100%;
-            height: 160px;
+            height: 200px;
             padding: 16px;
             border: 1px solid #e5e7eb;
             border-radius: 12px;
@@ -101,6 +199,24 @@
             transform: translateY(0);
         }
 
+        .generate-button {
+            background: #10b981;
+        }
+
+        .generate-button:hover {
+            background: #059669;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .clear-button {
+            background: #6b7280;
+        }
+
+        .clear-button:hover {
+            background: #4b5563;
+            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+        }
+
         .canvas-container {
             text-align: center;
             background: white;
@@ -126,24 +242,6 @@
             font-size: 0.85em;
             line-height: 1.6;
             color: #6b7280;
-        }
-
-        .example-button {
-            background: #10b981;
-        }
-
-        .example-button:hover {
-            background: #059669;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-        }
-
-        .clear-button {
-            background: #6b7280;
-        }
-
-        .clear-button:hover {
-            background: #4b5563;
-            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
         }
 
         .pattern-stats {
@@ -175,22 +273,86 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
+
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>AutoCAD PAT Pattern Viewer</h1>
+        <h1>AutoCAD PAT Pattern Viewer & Generator</h1>
         
         <div class="card">
-            <div class="input-section">
-                <label for="patData">Enter PAT pattern data (one line per hatch definition):</label>
-                <textarea id="patData" placeholder="Example:&#10;0, 0, 0, 0, 20.0, 0, 0&#10;90, 0, 0, 0, 20.0, 0, 0&#10;0, 0, 5.0, 0, 40.0, 20.0, -20.0"></textarea>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('generator')">Pattern Generator</button>
+                <button class="tab" onclick="switchTab('manual')">Manual Input</button>
             </div>
 
-            <div class="controls">
-                <button onclick="generatePattern()">Generate Pattern</button>
-                <button class="clear-button" onclick="clearCanvas()">Clear</button>
-                <button class="example-button" onclick="loadExample()">Load Example</button>
+            <!-- Pattern Generator Tab -->
+            <div id="generator-tab" class="tab-content active">
+                <div class="generator-section">
+                    <div class="generator-option" id="basketweave-option" onclick="selectPattern('basketweave')">
+                        <h3>🧺 Basket Weave</h3>
+                        <p>Interlaced horizontal and vertical slats</p>
+                    </div>
+                    <div class="generator-option" id="mosaic-option" onclick="selectPattern('mosaic')">
+                        <h3>🏛️ Mosaic Tile</h3>
+                        <p>Repeating tile pattern with rows</p>
+                    </div>
+                </div>
+
+                <!-- Basket Weave Inputs -->
+                <div id="basketweave-inputs" class="input-grid hidden">
+                    <div class="input-group">
+                        <label for="weave-width">Weave Width (inches)</label>
+                        <input type="number" id="weave-width" step="0.1" min="0.1" value="5">
+                    </div>
+                    <div class="input-group">
+                        <label for="gap-width">Gap Width (inches)</label>
+                        <input type="number" id="gap-width" step="0.1" min="0.1" value="7.5">
+                    </div>
+                </div>
+
+                <!-- Mosaic Inputs -->
+                <div id="mosaic-inputs" class="input-grid hidden">
+                    <div class="input-group">
+                        <label for="slat-width">Slat Width (inches)</label>
+                        <input type="number" id="slat-width" step="0.1" min="0.1" value="2">
+                    </div>
+                    <div class="input-group">
+                        <label for="row-num">Number of Rows</label>
+                        <input type="number" id="row-num" step="1" min="1" value="3">
+                    </div>
+                </div>
+
+                <div class="controls" id="generator-controls" style="display: none;">
+                    <button class="generate-button" onclick="generateSelectedPattern()">Generate Pattern</button>
+                    <button class="clear-button" onclick="clearCanvas()">Clear</button>
+                </div>
+            </div>
+
+            <!-- Manual Input Tab -->
+            <div id="manual-tab" class="tab-content">
+                <label for="patData">Enter PAT pattern data (one line per hatch definition):</label>
+                <textarea id="patData" placeholder="Example:&#10;0, 0, 0, 0, 20.0, 0, 0&#10;90, 0, 0, 0, 20.0, 0, 0&#10;0, 0, 5.0, 0, 40.0, 20.0, -20.0"></textarea>
+
+                <div class="controls">
+                    <button onclick="generatePattern()">Generate Pattern</button>
+                    <button class="clear-button" onclick="clearCanvas()">Clear</button>
+                    <button class="generate-button" onclick="loadExample()">Load Example</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Generated Pattern Output Section -->
+        <div id="output-section" class="card" style="display: none;">
+            <h3 style="margin: 0 0 16px 0; color: #1f2937; font-size: 1.1em;">Generated .PAT Pattern Data</h3>
+            <textarea id="patOutput" readonly style="height: 150px; background: #f9fafb; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 13px;"></textarea>
+            <div style="margin-top: 12px; display: flex; gap: 12px;">
+                <button onclick="copyToClipboard()" style="background: #10b981;">📋 Copy to Clipboard</button>
+                <button onclick="downloadPat()" style="background: #3b82f6;">💾 Download .PAT File</button>
+                <button onclick="useInViewer()" style="background: #8b5cf6;">👁️ View Pattern</button>
             </div>
         </div>
 
@@ -211,10 +373,176 @@
 
     <script>
         let patternLines = [];
+        let selectedPatternType = null;
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+
+        function selectPattern(patternType) {
+            selectedPatternType = patternType;
+            
+            // Update visual selection
+            document.querySelectorAll('.generator-option').forEach(option => option.classList.remove('selected'));
+            document.getElementById(`${patternType}-option`).classList.add('selected');
+            
+            // Show appropriate inputs
+            document.getElementById('basketweave-inputs').classList.add('hidden');
+            document.getElementById('mosaic-inputs').classList.add('hidden');
+            document.getElementById(`${patternType}-inputs`).classList.remove('hidden');
+            
+            // Show controls
+            document.getElementById('generator-controls').style.display = 'flex';
+        }
+
+        function generateBasketweavePattern(weaveWidth, gapWidth) {
+            const unit = weaveWidth + gapWidth;
+            const patternRepeat = unit * 2;
+            const dashLength = weaveWidth + (2 * gapWidth);
+            
+            console.log('Basket weave debug:', { weaveWidth, gapWidth, unit, patternRepeat, dashLength });
+            
+            return `90,     ${gapWidth},      ${weaveWidth},     0,      ${patternRepeat},     ${dashLength},     -${weaveWidth}
+90,     ${unit},     ${weaveWidth},     0,      ${patternRepeat},     ${dashLength},     -${weaveWidth}
+90,     ${dashLength},      ${unit + weaveWidth},     0,      ${patternRepeat},     ${dashLength},     -${weaveWidth}
+90,     ${dashLength + weaveWidth},     ${unit + weaveWidth},     0,      ${patternRepeat},     ${dashLength},     -${weaveWidth}
+0,      0,      0,      0,      ${patternRepeat},     ${dashLength},     -${weaveWidth}
+0,      0,      ${weaveWidth},     0,      ${patternRepeat},     ${dashLength},     -${weaveWidth}
+0,      ${unit},      ${unit},      0,      ${patternRepeat},     ${dashLength},     -${weaveWidth}
+0,      ${unit},      ${unit + weaveWidth},     0,      ${patternRepeat},     ${dashLength},     -${weaveWidth}`;
+        }
+
+        function generateMosaicPattern(slatWidth, rowNum) {
+            const gridWidth = slatWidth * rowNum;
+            const patternRepeat = gridWidth * 2;
+            
+            let text = `0,   0,        0,        0,     ${gridWidth},    0,     0
+90,    0,     0,        0,     ${gridWidth},    0,     0
+`;
+            
+            // Horizontal weave lines
+            for (let i = 0; i < rowNum - 1; i++) {
+                const yPos = slatWidth * (i + 1);
+                text += `0,     0,      ${yPos},      0,      ${patternRepeat},      ${gridWidth},      -${gridWidth}\n`;
+            }
+            
+            text += "\n";
+            
+            for (let i = 0; i < rowNum - 1; i++) {
+                const yPos = slatWidth * (i + 1) + gridWidth;
+                text += `0,     ${gridWidth},      ${yPos},      0,      ${patternRepeat},      ${gridWidth},      -${gridWidth}\n`;
+            }
+            
+            text += "\n";
+            
+            // Vertical weave lines
+            for (let i = 0; i < rowNum - 1; i++) {
+                const xPos = slatWidth * (i + 1);
+                text += `90,     ${xPos},      ${gridWidth},      0,       ${patternRepeat},      ${gridWidth},      -${gridWidth}\n`;
+            }
+            
+            text += "\n";
+            
+            for (let i = 0; i < rowNum - 1; i++) {
+                const xPos = slatWidth * (i + 1) + gridWidth;
+                text += `90,     ${xPos},      0,      0,      ${patternRepeat},      ${gridWidth},      -${gridWidth}\n`;
+            }
+            
+            return text;
+        }
+
+        function generateSelectedPattern() {
+            if (!selectedPatternType) {
+                alert('Please select a pattern type first!');
+                return;
+            }
+            
+            let patternText = '';
+            let patternName = '';
+            
+            if (selectedPatternType === 'basketweave') {
+                const weaveWidth = parseFloat(document.getElementById('weave-width').value);
+                const gapWidth = parseFloat(document.getElementById('gap-width').value);
+                
+                if (weaveWidth <= 0 || gapWidth <= 0) {
+                    alert('Please enter positive values for weave and gap width!');
+                    return;
+                }
+                
+                patternText = generateBasketweavePattern(weaveWidth, gapWidth);
+                patternName = `basketweave_${weaveWidth}x${gapWidth}`;
+            } else if (selectedPatternType === 'mosaic') {
+                const slatWidth = parseFloat(document.getElementById('slat-width').value);
+                const rowNum = parseInt(document.getElementById('row-num').value);
+                
+                if (slatWidth <= 0 || rowNum <= 0) {
+                    alert('Please enter positive values for slat width and row number!');
+                    return;
+                }
+                
+                patternText = generateMosaicPattern(slatWidth, rowNum);
+                patternName = `mosaic_${slatWidth}x${rowNum}`;
+            }
+            
+            // Show the output section
+            document.getElementById('output-section').style.display = 'block';
+            document.getElementById('patOutput').value = patternText;
+            
+            // Store pattern name for download
+            window.currentPatternName = patternName;
+            
+            // Update the manual input textarea (but don't auto-generate to avoid showing debug code)
+            document.getElementById('patData').value = patternText;
+        }
+
+        function copyToClipboard() {
+            const output = document.getElementById('patOutput');
+            output.select();
+            document.execCommand('copy');
+            
+            // Visual feedback
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '✅ Copied!';
+            button.style.background = '#059669';
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.background = '#10b981';
+            }, 2000);
+        }
+
+        function downloadPat() {
+            const patternText = document.getElementById('patOutput').value;
+            const filename = window.currentPatternName || 'pattern';
+            
+            const blob = new Blob([patternText], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filename}.pat`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function useInViewer() {
+            // Copy to manual input and generate the visual
+            const patternText = document.getElementById('patOutput').value;
+            document.getElementById('patData').value = patternText;
+            generatePattern();
+            
+            // Switch to manual tab to show the result
+            switchTab('manual');
+        }
 
         function parsePatternLine(line) {
             const cleanLine = line.trim();
-            if (!cleanLine || cleanLine.startsWith('*') || cleanLine.startsWith(';')) {
+            if (!cleanLine || cleanLine.startsWith('*') || cleanLine.startsWith(';') || cleanLine.startsWith('#')) {
                 return null;
             }
             
@@ -247,8 +575,6 @@
             const lines = input.split('\n');
             patternLines = lines.map(parsePatternLine).filter(line => line !== null);
             
-            console.log('Parsed pattern lines:', patternLines); // Debug output
-            
             if (patternLines.length === 0) {
                 ctx.fillStyle = '#666';
                 ctx.font = '20px Arial';
@@ -257,86 +583,70 @@
                 return;
             }
 
-            // Calculate scale based on pattern spacing for comfortable viewing
-            let typicalSpacing = 20; // Default fallback
-            
-            // Find the most common spacing value from deltas and dashes
-            const spacingValues = [];
+            // Calculate auto scale based on pattern values
+            let max = 1;
             for (let i = 0; i < patternLines.length; i++) {
                 const line = patternLines[i];
-                // Add delta values (line spacing)
-                if (line.deltaX !== 0) spacingValues.push(Math.abs(line.deltaX));
-                if (line.deltaY !== 0) spacingValues.push(Math.abs(line.deltaY));
-                // Add dash values (line segments)
+                [line.xOrigin, line.yOrigin, line.deltaX, line.deltaY].forEach(val => {
+                    if (Math.abs(val) > max) max = Math.abs(val);
+                });
                 line.dashes.forEach(val => {
-                    if (val !== 0) spacingValues.push(Math.abs(val));
+                    if (Math.abs(val) > max) max = Math.abs(val);
                 });
             }
             
-            if (spacingValues.length > 0) {
-                // Use median spacing value to avoid outliers
-                spacingValues.sort((a, b) => a - b);
-                typicalSpacing = spacingValues[Math.floor(spacingValues.length / 2)];
-            }
-            
-            // Scale so typical spacing appears as ~50 pixels on screen
-            const targetPixels = 50;
-            const scale = targetPixels / typicalSpacing;
+            const scale = canvas.height / max / 5;
 
-            // Set up drawing context
+            // Set up drawing context (like Pattycake)
             ctx.strokeStyle = '#2d3748';
             ctx.lineWidth = 1;
             ctx.lineCap = 'round';
             
-            // Simple coordinate system - origin at center, no flipping
-            ctx.translate(canvas.width / 2, canvas.height / 2);
+            // Set origin and scale
+            const gridMarginX = canvas.width / 2;
+            const gridMarginY = canvas.height / 2;
+            ctx.translate(gridMarginX, gridMarginY);
             ctx.scale(scale, scale);
             
-            // Draw each pattern line family
-            console.log('Drawing', patternLines.length, 'pattern families');
-            patternLines.forEach((line, index) => {
-                console.log(`Drawing family ${index}:`, line);
-                drawPatternFamily(ctx, line, canvas.width / scale, canvas.height / scale);
+            // Draw each pattern line
+            patternLines.forEach((line) => {
+                drawPatternRow(ctx, line, canvas.width / scale, canvas.height / scale);
             });
 
             updatePatternStats();
         }
 
-        function drawPatternFamily(ctx, patternRow, canvasW, canvasH) {
-            const { angle, xOrigin, yOrigin, deltaX, deltaY, dashes } = patternRow;
+        function drawPatternRow(ctx, patternData, canvasW, canvasH) {
+            const { angle, xOrigin, yOrigin, deltaX, deltaY, dashes } = patternData;
             
-            console.log(`Drawing pattern family at ${angle}° with deltas (${deltaX}, ${deltaY})`);
+            // Convert to array format like Pattycake expects
+            const row = [angle, xOrigin, yOrigin, deltaX, deltaY, ...dashes];
             
+            // If no delta offset, just draw one line
             if (deltaX === 0 && deltaY === 0) {
-                // Single line case
-                console.log('Single line case');
-                drawSingleRow(ctx, [angle, xOrigin, yOrigin, deltaX, deltaY, ...dashes], 0, canvasW, canvasH);
+                drawSinglePatternRow(ctx, row, 0, canvasW, canvasH);
                 return;
             }
             
-            // Draw parallel lines in both directions regardless of delta sign
-            const maxLines = 50;
-            console.log(`Drawing ${maxLines * 2} parallel lines`);
+            // Draw family of parallel lines using perpendicular offsets
+            const maxLines = 100;
             
-            // Draw lines at offsets: 0, ±1, ±2, ±3, etc.
-            // This ensures we get lines in both directions regardless of delta sign
-            for (let i = 0; i < maxLines; i++) {
-                // Draw at positive offset
-                if (!drawSingleRow(ctx, [angle, xOrigin, yOrigin, deltaX, deltaY, ...dashes], i, canvasW, canvasH)) {
+            // Draw in both directions
+            for (let perpOffset = 0; perpOffset < maxLines; perpOffset++) {
+                if (!drawSinglePatternRow(ctx, row, perpOffset, canvasW, canvasH)) {
                     break;
                 }
-                
-                // Draw at negative offset (skip i=0 to avoid duplicate)
-                if (i > 0) {
-                    if (!drawSingleRow(ctx, [angle, xOrigin, yOrigin, deltaX, deltaY, ...dashes], -i, canvasW, canvasH)) {
-                        break;
-                    }
+            }
+            
+            for (let perpOffset = -1; perpOffset > -maxLines; perpOffset--) {
+                if (!drawSinglePatternRow(ctx, row, perpOffset, canvasW, canvasH)) {
+                    break;
                 }
             }
         }
 
-        function drawSingleRow(ctx, row, perpOffset, canvasW, canvasH) {
-            // Extract row data: [angle, x-origin, y-origin, delta-x, delta-y, dash1, dash2, ...]
+        function drawSinglePatternRow(ctx, row, perpOffset, canvasW, canvasH) {
+            // Extract values: [angle, x-origin, y-origin, delta-x, delta-y, dash1, dash2, ...]
             const angle = row[0];
             let currentX = row[1];
             let currentY = row[2];
@@ -348,7 +658,7 @@
             const a = angle * Math.PI / 180;
             const aP = (angle - 90) * Math.PI / 180; // Perpendicular angle
             
-            // Apply perpendicular offset (Pattycake's approach)
+            // Apply perpendicular offset (Pattycake's exact method)
             currentX += perpOffset * (Math.cos(aP) * deltaY);
             currentY += perpOffset * (Math.sin(aP) * deltaY);
             currentX -= perpOffset * (Math.cos(a) * deltaX);
@@ -357,61 +667,40 @@
             const x1 = currentX;
             const y1 = currentY;
             
-            // Calculate line endpoint - extend in both directions
-            const lineLength = Math.max(canvasW, canvasH) * 2; // Longer lines
+            // Calculate line endpoints
+            const lineLength = Math.max(canvasW, canvasH);
             const x2 = x1 + Math.cos(a) * lineLength;
             const y2 = y1 + Math.sin(a) * lineLength;
-            const x0 = x1 - Math.cos(a) * lineLength; // Extend backwards too
-            const y0 = y1 - Math.sin(a) * lineLength;
             
-            // Check if line intersects with visible area 
-            const bounds = {
-                left: -canvasW/2,
-                right: canvasW/2, 
-                top: -canvasH/2,
-                bottom: canvasH/2
-            };
-            
-            // More generous bounds check - if any part of the line might be visible
-            if (!lineIntersectsBounds(x0, y0, x2, y2, bounds)) {
-                return false; // Line not visible
+            // Simple bounds check - if line start is too far off canvas, skip
+            if (Math.abs(x1) > canvasW || Math.abs(y1) > canvasH) {
+                return false;
             }
             
             // Draw the line
             ctx.beginPath();
-            ctx.moveTo(x0, -y0); // Start from extended backwards point
+            ctx.moveTo(x1, -y1); // Flip Y for canvas coordinates
             
+            // Handle dash patterns
             if (dashArray.length === 0) {
                 // Solid line
                 ctx.setLineDash([]);
-                ctx.lineTo(x2, -y2);
             } else {
-                // Dashed line - convert negative values to positive
+                // Dashed line - process dash pattern like Pattycake
+                const dasharraySum = dashArray.reduce((sum, d) => sum + Math.abs(d), 0);
                 const positiveDashes = dashArray.map(d => Math.abs(d));
                 ctx.setLineDash(positiveDashes);
-                ctx.lineTo(x2, -y2);
             }
             
+            ctx.lineTo(x2, -y2);
             ctx.stroke();
+            
             return true;
         }
 
         function lineIntersectsBounds(x1, y1, x2, y2, bounds) {
-            // Simple bounds check - if either endpoint is in bounds or line crosses bounds
-            const p1InBounds = (x1 >= bounds.left && x1 <= bounds.right && 
-                               y1 >= bounds.top && y1 <= bounds.bottom);
-            const p2InBounds = (x2 >= bounds.left && x2 <= bounds.right && 
-                               y2 >= bounds.top && y2 <= bounds.bottom);
-            
-            if (p1InBounds || p2InBounds) return true;
-            
-            // Check if line crosses any bound
-            return (
-                (x1 < bounds.left && x2 > bounds.right) ||
-                (x1 > bounds.right && x2 < bounds.left) ||
-                (y1 < bounds.top && y2 > bounds.bottom) ||
-                (y1 > bounds.bottom && y2 < bounds.top)
-            );
+            // Simplified bounds check
+            return true; // Always draw for simplicity
         }
 
         function clearCanvas() {
@@ -425,9 +714,6 @@
         }
 
         function loadExample() {
-            // Clear canvas first
-            clearCanvas();
-            
             const example = `0, 0, 0, 0, 20.0, 0, 0
 90, 0, 0, 0, 20.0, 0, 0
 0, 0, 5.0, 0, 40.0, 20.0, -20.0
@@ -490,11 +776,96 @@
                 </div>
             `;
         }
+    </script>ctx.moveTo(x0, -y0); // Start from extended backwards point
+            
+            if (dashArray.length === 0) {
+                // Solid line
+                ctx.setLineDash([]);
+                ctx.lineTo(x2, -y2);
+            } else {
+                // Dashed line - convert negative values to positive
+                const positiveDashes = dashArray.map(d => Math.abs(d));
+                ctx.setLineDash(positiveDashes);
+                ctx.lineTo(x2, -y2);
+            }
+            
+            ctx.stroke();
+            return true;
+        }
 
-        // Initialize
-        window.onload = function() {
-            loadExample();
-        };
-    </script>
-</body>
-</html>
+        function lineIntersectsBounds(x1, y1, x2, y2, bounds) {
+            // Simple bounds check - if either endpoint is in bounds or line crosses bounds
+            const p1InBounds = (x1 >= bounds.left && x1 <= bounds.right && 
+                               y1 >= bounds.top && y1 <= bounds.bottom);
+            const p2InBounds = (x2 >= bounds.left && x2 <= bounds.right && 
+                               y2 >= bounds.top && y2 <= bounds.bottom);
+            
+            if (p1InBounds || p2InBounds) return true;
+            
+            // Check if line crosses any bound
+            return (
+                (x1 < bounds.left && x2 > bounds.right) ||
+                (x1 > bounds.right && x2 < bounds.left) ||
+                (y1 < bounds.top && y2 > bounds.bottom) ||
+                (y1 > bounds.bottom && y2 < bounds.top)
+            );
+        }
+
+        function clearCanvas() {
+            const canvas = document.getElementById('patternCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            document.getElementById('patternStats').innerHTML = '';
+        }
+
+        function loadExample() {
+            const example = `0, 0, 0, 0, 20.0, 0, 0
+90, 0, 0, 0, 20.0, 0, 0
+0, 0, 5.0, 0, 40.0, 20.0, -20.0
+0, 0, 10.0, 0, 40.0, 20.0, -20.0
+0, 0, 15.0, 0, 40.0, 20.0, -20.0
+0, 20.0, 25.0, 0, 40.0, 20.0, -20.0
+0, 20.0, 30.0, 0, 40.0, 20.0, -20.0
+0, 20.0, 35.0, 0, 40.0, 20.0, -20.0
+90, 5.0, 20.0, 0, 40.0, 20.0, -20.0
+90, 10.0, 20.0, 0, 40.0, 20.0, -20.0
+90, 15.0, 20.0, 0, 40.0, 20.0, -20.0
+90, 25.0, 0, 0, 40.0, 20.0, -20.0
+90, 30.0, 0, 0, 40.0, 20.0, -20.0
+90, 35.0, 0, 0, 40.0, 20.0, -20.0`;
+            
+            document.getElementById('patData').value = example;
+            generatePattern();
+        }
+
+        function updatePatternStats() {
+            const stats = document.getElementById('patternStats');
+            
+            if (patternLines.length === 0) {
+                stats.innerHTML = '';
+                return;
+            }
+            
+            const angles = [...new Set(patternLines.map(line => line.angle))].sort((a, b) => a - b);
+            const hasHorizontal = angles.includes(0);
+            const hasVertical = angles.includes(90);
+            const hasDashes = patternLines.some(line => line.dashes.length > 0);
+            
+            let patternType = 'Linear';
+            if (hasHorizontal && hasVertical) {
+                patternType = 'Grid';
+            } else if (angles.length > 2) {
+                patternType = 'Multi-angle';
+            }
+            
+            stats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${patternLines.length}</div>
+                    <div class="stat-label">Hatch Lines</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${angles.length}</div>
+                    <div
