@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoCAD PAT Pattern Viewer & Generator</title>
+    <title>PATTYPAT - PAT Pattern Viewer & Generator</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -281,7 +281,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>AutoCAD PAT Pattern Viewer & Generator</h1>
+        <h1>PATTYPAT</h1>
         
         <div class="card">
             <div class="tabs">
@@ -383,6 +383,11 @@
             // Update tab content
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // Hide output section when switching to manual tab
+            if (tabName === 'manual') {
+                document.getElementById('output-section').style.display = 'none';
+            }
         }
 
         function selectPattern(patternType) {
@@ -406,7 +411,7 @@
             const patternRepeat = unit * 2;
             const dashLength = weaveWidth + (2 * gapWidth);
             
-            console.log('Basket weave debug:', { weaveWidth, gapWidth, unit, patternRepeat, dashLength });
+            console.log('Basket weave debug:', 'weaveWidth:', weaveWidth, 'gapWidth:', gapWidth, 'unit:', unit, 'patternRepeat:', patternRepeat, 'dashLength:', dashLength);
             
             return `90,     ${gapWidth},      ${weaveWidth},     0,      ${patternRepeat},     ${dashLength},     -${weaveWidth}
 90,     ${unit},     ${weaveWidth},     0,      ${patternRepeat},     ${dashLength},     -${weaveWidth}
@@ -538,6 +543,9 @@
             
             // Switch to manual tab to show the result
             switchTab('manual');
+            
+            // Hide the output section when switching to manual view
+            document.getElementById('output-section').style.display = 'none';
         }
 
         function parsePatternLine(line) {
@@ -583,8 +591,10 @@
                 return;
             }
 
-            // Calculate auto scale based on pattern values
+            // Calculate auto scale and find bounds
             let max = 1;
+            let minX = 0, maxX = 0, minY = 0, maxY = 0;
+            
             for (let i = 0; i < patternLines.length; i++) {
                 const line = patternLines[i];
                 [line.xOrigin, line.yOrigin, line.deltaX, line.deltaY].forEach(val => {
@@ -593,34 +603,62 @@
                 line.dashes.forEach(val => {
                     if (Math.abs(val) > max) max = Math.abs(val);
                 });
+                
+                // Track bounds for centering
+                if (line.xOrigin < minX) minX = line.xOrigin;
+                if (line.xOrigin > maxX) maxX = line.xOrigin;
+                if (line.yOrigin < minY) minY = line.yOrigin;
+                if (line.yOrigin > maxY) maxY = line.yOrigin;
             }
             
             const scale = canvas.height / max / 5;
 
-            // Set up drawing context (like Pattycake)
+            // Set up drawing context
             ctx.strokeStyle = '#2d3748';
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 0.5; // Made thinner
             ctx.lineCap = 'round';
             
-            // Set origin and scale
-            const gridMarginX = canvas.width / 2;
-            const gridMarginY = canvas.height / 2;
-            ctx.translate(gridMarginX, gridMarginY);
-            ctx.scale(scale, scale);
+            // Calculate offset to ensure all patterns are in positive quadrant
+            const offsetX = minX < 0 ? Math.abs(minX) + 100 : 0; 
+            const offsetY = minY < 0 ? Math.abs(minY) + 100 : 0;
             
-            // Draw each pattern line
+            // Set origin at bottom-left corner with padding (20,20) - NO CHANGE TO VIEWER
+            ctx.translate(20, canvas.height - 20); 
+            ctx.scale(scale, -scale);
+            
+            // Draw each pattern line with offset
             patternLines.forEach((line) => {
-                drawPatternRow(ctx, line, canvas.width / scale, canvas.height / scale);
+                drawPatternRow(ctx, line, canvas.width / scale, canvas.height / scale, offsetX, offsetY);
             });
+
+            // Draw coordinate axes AFTER patterns so they appear on top
+            const axisLength = Math.max(canvas.width, canvas.height) / scale;
+            
+            // Draw X-axis in pink
+            ctx.strokeStyle = '#ff69b4';
+            ctx.lineWidth = 0.5;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(axisLength, 0);
+            ctx.stroke();
+            
+            // Draw Y-axis in blue
+            ctx.strokeStyle = '#4169e1';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, axisLength);
+            ctx.stroke();
 
             updatePatternStats();
         }
 
-        function drawPatternRow(ctx, patternData, canvasW, canvasH) {
+        function drawPatternRow(ctx, patternData, canvasW, canvasH, offsetX = 0, offsetY = 0) {
             const { angle, xOrigin, yOrigin, deltaX, deltaY, dashes } = patternData;
             
             // Convert to array format like Pattycake expects
-            const row = [angle, xOrigin, yOrigin, deltaX, deltaY, ...dashes];
+            const row = [angle, xOrigin + offsetX, yOrigin + offsetY, deltaX, deltaY, ...dashes];
             
             // If no delta offset, just draw one line
             if (deltaX === 0 && deltaY === 0) {
@@ -679,7 +717,7 @@
             
             // Draw the line
             ctx.beginPath();
-            ctx.moveTo(x1, -y1); // Flip Y for canvas coordinates
+            ctx.moveTo(x1, y1); // No need to flip Y anymore since we handle it in the transform
             
             // Handle dash patterns
             if (dashArray.length === 0) {
@@ -692,7 +730,7 @@
                 ctx.setLineDash(positiveDashes);
             }
             
-            ctx.lineTo(x2, -y2);
+            ctx.lineTo(x2, y2);
             ctx.stroke();
             
             return true;
@@ -776,96 +814,6 @@
                 </div>
             `;
         }
-    </script>ctx.moveTo(x0, -y0); // Start from extended backwards point
-            
-            if (dashArray.length === 0) {
-                // Solid line
-                ctx.setLineDash([]);
-                ctx.lineTo(x2, -y2);
-            } else {
-                // Dashed line - convert negative values to positive
-                const positiveDashes = dashArray.map(d => Math.abs(d));
-                ctx.setLineDash(positiveDashes);
-                ctx.lineTo(x2, -y2);
-            }
-            
-            ctx.stroke();
-            return true;
-        }
-
-        function lineIntersectsBounds(x1, y1, x2, y2, bounds) {
-            // Simple bounds check - if either endpoint is in bounds or line crosses bounds
-            const p1InBounds = (x1 >= bounds.left && x1 <= bounds.right && 
-                               y1 >= bounds.top && y1 <= bounds.bottom);
-            const p2InBounds = (x2 >= bounds.left && x2 <= bounds.right && 
-                               y2 >= bounds.top && y2 <= bounds.bottom);
-            
-            if (p1InBounds || p2InBounds) return true;
-            
-            // Check if line crosses any bound
-            return (
-                (x1 < bounds.left && x2 > bounds.right) ||
-                (x1 > bounds.right && x2 < bounds.left) ||
-                (y1 < bounds.top && y2 > bounds.bottom) ||
-                (y1 > bounds.bottom && y2 < bounds.top)
-            );
-        }
-
-        function clearCanvas() {
-            const canvas = document.getElementById('patternCanvas');
-            const ctx = canvas.getContext('2d');
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            document.getElementById('patternStats').innerHTML = '';
-        }
-
-        function loadExample() {
-            const example = `0, 0, 0, 0, 20.0, 0, 0
-90, 0, 0, 0, 20.0, 0, 0
-0, 0, 5.0, 0, 40.0, 20.0, -20.0
-0, 0, 10.0, 0, 40.0, 20.0, -20.0
-0, 0, 15.0, 0, 40.0, 20.0, -20.0
-0, 20.0, 25.0, 0, 40.0, 20.0, -20.0
-0, 20.0, 30.0, 0, 40.0, 20.0, -20.0
-0, 20.0, 35.0, 0, 40.0, 20.0, -20.0
-90, 5.0, 20.0, 0, 40.0, 20.0, -20.0
-90, 10.0, 20.0, 0, 40.0, 20.0, -20.0
-90, 15.0, 20.0, 0, 40.0, 20.0, -20.0
-90, 25.0, 0, 0, 40.0, 20.0, -20.0
-90, 30.0, 0, 0, 40.0, 20.0, -20.0
-90, 35.0, 0, 0, 40.0, 20.0, -20.0`;
-            
-            document.getElementById('patData').value = example;
-            generatePattern();
-        }
-
-        function updatePatternStats() {
-            const stats = document.getElementById('patternStats');
-            
-            if (patternLines.length === 0) {
-                stats.innerHTML = '';
-                return;
-            }
-            
-            const angles = [...new Set(patternLines.map(line => line.angle))].sort((a, b) => a - b);
-            const hasHorizontal = angles.includes(0);
-            const hasVertical = angles.includes(90);
-            const hasDashes = patternLines.some(line => line.dashes.length > 0);
-            
-            let patternType = 'Linear';
-            if (hasHorizontal && hasVertical) {
-                patternType = 'Grid';
-            } else if (angles.length > 2) {
-                patternType = 'Multi-angle';
-            }
-            
-            stats.innerHTML = `
-                <div class="stat-card">
-                    <div class="stat-value">${patternLines.length}</div>
-                    <div class="stat-label">Hatch Lines</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${angles.length}</div>
-                    <div
+    </script>
+</body>
+</html>
